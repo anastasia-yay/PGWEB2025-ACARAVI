@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta Flores Timur - Batas Kecamatan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-search@3.0.2/dist/leaflet-search.min.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet-search@3.0.2/dist/leaflet-search.min.js"></script>
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            width: 100%;
+            /* Adjust height to be below navbar */
+            height: calc(100% - 56px); /* Assuming navbar height is 56px */
+            position: absolute;
+            top: 56px;
+            left: 0;
+        }
+        .legend {
+            padding: 6px 8px;
+            font: 14px Arial, Helvetica, sans-serif;
+            background: white;
+            background: rgba(255,255,255,0.8);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 5px;
+            line-height: 1.8;
+            color: #333;
+        }
+        .legend i {
+            width: 18px;
+            height: 18px;
+            float: left;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark" style="position: relative; z-index: 1000;">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Flores Timur</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal">Tentang</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div id="map"></div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="kecamatanModal" tabindex="-1" aria-labelledby="kecamatanModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="kecamatanModalLabel">Informasi Kecamatan</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body" id="kecamatanModalBody">
+            ...
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="aboutModalLabel">Tentang</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Nama : Anastasia Anindhita Ananggadhatu</p>
+            <p>NIM : 24/540610/SV/24885</p>
+            <p>Kelas : B</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        var map = L.map('map').setView([-8.4, 122.95], 10);
+
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        var esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+
+        map.createPane('batasKecamatanPane');
+        map.getPane('batasKecamatanPane').style.zIndex = 400;
+        map.createPane('sungaiPane');
+        map.getPane('sungaiPane').style.zIndex = 401;
+        map.createPane('jalanPane');
+        map.getPane('jalanPane').style.zIndex = 402;
+        map.createPane('toponimiPane');
+        map.getPane('toponimiPane').style.zIndex = 403;
+
+        var batasKecamatan = L.layerGroup().addTo(map);
+        var jalan = L.layerGroup().addTo(map);
+        var sungai = L.layerGroup().addTo(map);
+        var toponimi = L.layerGroup().addTo(map);
+
+        var baseMaps = {
+            "OpenStreetMap": osm,
+            "Esri Satellite": esri
+        };
+
+        // Fungsi untuk warna graduated berdasarkan populasi (Penduduk)
+        function getColor(p) {
+            return p > 20000 ? '#8c510a' :
+                   p > 10000 ? '#d8b365' :
+                                '#f6e8c3';
+        }
+
+        // Fungsi untuk styling layer
+        function style(feature) {
+            return {
+                fillColor: getColor(feature.properties.Penduduk),
+                weight: 2,
+                opacity: 1,
+                color: 'white',
+                dashArray: '3',
+                fillOpacity: 0.7
+            };
+        }
+
+        var batasKecamatanLayer;
+        // Fetch GeoJSON dan tambahkan ke peta
+        fetch('DATA/batas_kecamatan.geojson')
+            .then(response => response.json())
+            .then(data => {
+                batasKecamatanLayer = L.geoJson(data, { 
+                    pane: 'batasKecamatanPane',
+                    style: style,
+                    onEachFeature: function(feature, layer) {
+                        layer.bindTooltip(feature.properties.WADMKC, {
+                            sticky: true
+                        });
+                        layer.on('click', function(e) {
+                            var properties = e.target.feature.properties;
+                            document.getElementById('kecamatanModalLabel').innerHTML = 'Kecamatan: ' + properties.WADMKC;
+                            document.getElementById('kecamatanModalBody').innerHTML = '<i class="bi bi-people"></i> Jumlah Penduduk: ' + properties.Penduduk;
+                            var myModal = new bootstrap.Modal(document.getElementById('kecamatanModal'), {});
+                            myModal.show();
+                        });
+                    }
+                }).addTo(batasKecamatan);
+            });
+
+        // Fungsi untuk styling jalan berdasarkan NAMA_UNSUR
+        function getJalanStyle(feature) {
+            var namaUnsur = feature.properties.NAMA_UNSUR;
+            var style = {
+                color: 'red',
+                weight: 2 // Default weight
+            };
+
+            switch (namaUnsur) {
+                case 'Jalan Arteri':
+                    style.weight = 4;
+                    break;
+                case 'Jalan Kolektor':
+                    style.weight = 3;
+                    break;
+                case 'Jalan Lokal':
+                    style.weight = 2;
+                    break;
+                default:
+                    style.weight = 1;
+                    break;
+            }
+            return style;
+        }
+
+        // Fetch GeoJSON for jalan and add to map
+        fetch('DATA/jalan.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJson(data, {
+                    pane: 'jalanPane',
+                    style: getJalanStyle
+                }).addTo(jalan);
+            });
+
+        // Fetch GeoJSON for sungai and add to map
+        fetch('DATA/sungai.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJson(data, {
+                    pane: 'sungaiPane',
+                    style: {
+                        color: 'blue',
+                        weight: 2
+                    }
+                }).addTo(sungai);
+            });
+
+        // Fetch GeoJSON for toponimi and add to map
+        fetch('DATA/toponimi.geojson')
+            .then(response => response.json())
+            .then(data => {
+                L.geoJson(data, {
+                    pane: 'toponimiPane',
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup(feature.properties.NAMOBJ);
+                    }
+                }).addTo(toponimi);
+            });
+
+        var overlayMaps = {
+            "Toponimi": toponimi,
+            "Jalan": jalan,
+            "Sungai": sungai,
+            "Batas Kecamatan": batasKecamatan
+        };
+
+        var layerControl = L.control.layers(baseMaps, overlayMaps, {
+            collapsed: window.innerWidth < 768
+        }).addTo(map);
+
+        var legend = L.control({position: 'bottomleft'});
+
+        legend.onAdd = function (map) {
+
+            var div = L.DomUtil.create('div', 'info legend'),
+                grades = [0, 10000, 20000],
+                labels = [];
+
+            div.innerHTML = '<h3>LEGENDA</h3>';
+            // Tambahkan legenda jumlah penduduk
+            div.innerHTML += '<h4>Jumlah Penduduk</h4>';
+            for (var i = 0; i < grades.length; i++) {
+                div.innerHTML +=
+                    '<i style="background:' + getColor(grades[i] + 1) + '"></i> ' +
+                    grades[i] + (grades[i + 1] ? '&ndash;' + grades[i + 1] + '<br>' : '+');
+            }
+
+            // Tambahkan legenda jalan
+            div.innerHTML += '<hr><h4>Jalan</h4>';
+            div.innerHTML += '<i style="background: red; width: 18px; height: 4px; display: inline-block; margin-right: 8px; opacity: 0.7;"></i> Jalan Arteri<br>';
+            div.innerHTML += '<i style="background: red; width: 18px; height: 3px; display: inline-block; margin-right: 8px; opacity: 0.7;"></i> Jalan Kolektor<br>';
+            div.innerHTML += '<i style="background: red; width: 18px; height: 2px; display: inline-block; margin-right: 8px; opacity: 0.7;"></i> Jalan Lokal<br>';
+            div.innerHTML += '<i style="background: red; width: 18px; height: 1px; display: inline-block; margin-right: 8px; opacity: 0.7;"></i> Lainnya<br>';
+
+            // Tambahkan legenda sungai
+            div.innerHTML += '<hr><h4>Sungai</h4>';
+            div.innerHTML += '<i style="background: blue; width: 18px; height: 2px; display: inline-block; margin-right: 8px; opacity: 0.7;"></i> Sungai<br>';
+
+            return div;
+        };
+
+        legend.addTo(map);
+
+        var searchControl = new L.Control.Search({
+            layer: batasKecamatan,
+            propertyName: 'WADMKC',
+            marker: false,
+            moveToLocation: function(latlng, title, map) {
+                var zoom = map.getBoundsZoom(latlng.layer.getBounds());
+                map.setView(latlng, zoom); // set the view nicely
+            }
+        });
+
+        searchControl.on('search:locationfound', function(e) {
+            e.layer.setStyle({fillColor: '#3f0', color: '#0f0'});
+            if(e.layer._popup)
+                e.layer.openPopup();
+
+        }).on('search:collapsed', function(e) {
+            batasKecamatan.eachLayer(function(layer) {
+                batasKecamatan.resetStyle(layer);
+            });
+        });
+
+        map.addControl(searchControl);
+
+    </script>
+</body>
+</html>
